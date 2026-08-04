@@ -1,6 +1,6 @@
 {
   "name": "@mindfiredigital/monodog",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "Backend API server for monodog monorepo dashboard",
   "keywords": [
     "monodog",

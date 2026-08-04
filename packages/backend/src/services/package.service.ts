@@ -7,23 +7,126 @@ import { MonorepoScanner } from '@mindfiredigital/monorepo-scanner';
 import { PackageRepository } from '../repositories';
 import { AppLogger } from '../middleware';
 import type { PackageModel } from '../types/database';
-import { getPackageBumpTypes } from './changeset-service';
+import {
+  getPackageBumpTypes,
+  checkVersionAvailableOnNpm,
+} from './changeset-service';
 
 export const transformPackage = (pkg: any) => {
+  const rawHealth = pkg.packageHealth || pkg.health;
+  const overallScore: number | null =
+    rawHealth?.packageOverallScore ??
+    rawHealth?.overallScore ??
+    (typeof pkg.overallScore === 'number' ? pkg.overallScore : null);
+
+  const hasScan = typeof overallScore === 'number';
+
+  const isHealthy: boolean | null = hasScan
+    ? (rawHealth?.isHealthy ?? overallScore! >= 70)
+    : null;
+
+  const status =
+    pkg.status && pkg.status !== 'unknown' && pkg.status !== ''
+      ? pkg.status
+      : hasScan
+        ? overallScore! >= 70
+          ? 'healthy'
+          : overallScore! >= 50
+            ? 'warning'
+            : 'error'
+        : 'unscanned';
+
+  const commitsCount = Array.isArray(pkg.commits)
+    ? pkg.commits.length
+    : typeof pkg.commits === 'number'
+      ? pkg.commits
+      : pkg._count?.commits || 0;
+
+  const healthObj = {
+    overallScore,
+    isHealthy,
+    buildStatus:
+      rawHealth?.packageBuildStatus || rawHealth?.buildStatus || 'unknown',
+    coverageScore:
+      rawHealth?.packageTestCoverage ?? rawHealth?.coverageScore ?? 0,
+    lintScore:
+      rawHealth?.packageLintStatus || rawHealth?.lintScore || 'unknown',
+    securityScore:
+      rawHealth?.packageSecurity || rawHealth?.securityScore || 'unknown',
+    dependenciesScore:
+      rawHealth?.packageDependencies ||
+      rawHealth?.dependenciesScore ||
+      'unknown',
+  };
+
   return {
     ...pkg,
+    status,
+    commitsCount,
     commits: Array.isArray(pkg.commits)
       ? pkg.commits
       : pkg._count?.commits || 0,
-    maintainers: pkg.maintainers ? JSON.parse(pkg.maintainers) : [],
-    scripts: pkg.scripts ? JSON.parse(pkg.scripts) : {},
-    repository: pkg.repository ? JSON.parse(pkg.repository) : {},
-    dependencies: pkg.dependencies ? JSON.parse(pkg.dependencies) : [],
-    devDependencies: pkg.devDependencies ? JSON.parse(pkg.devDependencies) : [],
+    health: healthObj,
+    maintainers: pkg.maintainers
+      ? typeof pkg.maintainers === 'string'
+        ? JSON.parse(pkg.maintainers)
+        : pkg.maintainers
+      : [],
+    scripts: pkg.scripts
+      ? typeof pkg.scripts === 'string'
+        ? JSON.parse(pkg.scripts)
+        : pkg.scripts
+      : {},
+    repository: pkg.repository
+      ? typeof pkg.repository === 'string'
+        ? JSON.parse(pkg.repository)
+        : pkg.repository
+      : {},
+    dependencies: pkg.dependencies
+      ? typeof pkg.dependencies === 'string'
+        ? JSON.parse(pkg.dependencies)
+        : pkg.dependencies
+      : [],
+    devDependencies: pkg.devDependencies
+      ? typeof pkg.devDependencies === 'string'
+        ? JSON.parse(pkg.devDependencies)
+        : pkg.devDependencies
+      : [],
     peerDependencies: pkg.peerDependencies
-      ? JSON.parse(pkg.peerDependencies)
+      ? typeof pkg.peerDependencies === 'string'
+        ? JSON.parse(pkg.peerDependencies)
+        : pkg.peerDependencies
       : [],
   };
+};
+
+export const enhanceWithPublishStatus = async (pkg: any) => {
+  const transformed = transformPackage(pkg);
+  const isPrivate = Boolean(pkg.private);
+
+  if (isPrivate) {
+    return {
+      ...transformed,
+      isPublished: false,
+      publishStatus: 'private',
+    };
+  }
+
+  try {
+    const isAvailable = await checkVersionAvailableOnNpm(pkg.name, pkg.version);
+    const isPublished = !isAvailable;
+    return {
+      ...transformed,
+      isPublished,
+      publishStatus: isPublished ? 'published' : 'unpublished',
+    };
+  } catch (error) {
+    return {
+      ...transformed,
+      isPublished: false,
+      publishStatus: 'unpublished',
+    };
+  }
 };
 
 export const getAllPackages = async (rootPath?: string) => {
@@ -34,6 +137,7 @@ export const getAllPackages = async (rootPath?: string) => {
     include: {
       _count: { select: { commits: true } },
       dependenciesInfo: true,
+      packageHealth: true,
     },
   });
 
@@ -57,16 +161,22 @@ export const getAllPackages = async (rootPath?: string) => {
       include: {
         _count: { select: { commits: true } },
         dependenciesInfo: true,
+        packageHealth: true,
       },
     });
   }
 
   const bumpTypes = await getPackageBumpTypes(resolvedRootPath);
 
-  return dbPackages.map((pkg: any) => ({
-    ...transformPackage(pkg),
-    publishType: bumpTypes[pkg.name] || 'patch',
-  }));
+  return Promise.all(
+    dbPackages.map(async (pkg: any) => {
+      const enhanced = await enhanceWithPublishStatus(pkg);
+      return {
+        ...enhanced,
+        publishType: bumpTypes[pkg.name] || 'patch',
+      };
+    })
+  );
 };
 
 export const getPackagesService = async (rootPath: string) => {
@@ -91,35 +201,9 @@ export const getPackagesService = async (rootPath: string) => {
     }
   }
 
-  const transformedPackages = dbPackages.map((pkg: PackageModel) => {
-    // We create a new object 'transformedPkg' based on the database record 'pkg'
-    const transformedPkg = { ...pkg };
-
-    // 1. Maintainers
-    transformedPkg.maintainers = pkg.maintainers
-      ? JSON.parse(pkg.maintainers)
-      : [];
-
-    // 2. Scripts/repository (should default to an object, not an array)
-    transformedPkg.scripts = pkg.scripts ? JSON.parse(pkg.scripts) : {};
-    transformedPkg.repository = pkg.repository
-      ? JSON.parse(pkg.repository)
-      : {};
-
-    // 3. Dependencies List
-    transformedPkg.dependencies = pkg.dependencies
-      ? JSON.parse(pkg.dependencies)
-      : [];
-    transformedPkg.devDependencies = pkg.devDependencies
-      ? JSON.parse(pkg.devDependencies)
-      : [];
-    transformedPkg.peerDependencies = pkg.peerDependencies
-      ? JSON.parse(pkg.peerDependencies)
-      : [];
-
-    (transformedPkg as any).commits = (pkg as any)._count?.commits || 0;
-    return transformedPkg; // Return the fully transformed object
-  });
+  const transformedPackages = dbPackages.map((pkg: any) =>
+    transformPackage(pkg)
+  );
 
   const bumpTypes = await getPackageBumpTypes(rootPath);
 
@@ -192,7 +276,7 @@ export const getPackageByName = async (name: string) => {
     throw new Error('Package not found');
   }
 
-  const transformedPkg = transformPackage(pkg);
+  const transformedPkg = await enhanceWithPublishStatus(pkg);
 
   let packageReport = null;
   const rootPath = process.env.MONODOG_TARGET_ROOT || process.cwd();

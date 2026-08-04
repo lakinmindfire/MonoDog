@@ -11,15 +11,14 @@ export interface HealthMetric {
 
 export interface PackageHealth {
   name: string;
-  packageOverallScore: number;
-  overallScore?: number;
+  overallScore: number | null;
   buildStatus: 'success' | 'failed' | 'building' | 'unknown';
   testCoverage: number;
-  lintStatus: 'pass' | 'warn' | 'fail';
-  securityAudit: 'pass' | 'warn' | 'fail';
-  dependencies: 'up-to-date' | 'outdated' | 'vulnerable';
-  lastBuild: string;
-  lastTest: string;
+  lintStatus: 'pass' | 'warn' | 'fail' | 'unknown';
+  securityAudit: 'pass' | 'warn' | 'fail' | 'unknown';
+  dependencies: 'up-to-date' | 'outdated' | 'vulnerable' | 'unknown';
+  lastBuild?: string;
+  lastTest?: string;
 }
 
 export interface HealthData {
@@ -34,7 +33,7 @@ export interface HealthAlert {
   title: string;
   message: string;
   packageName?: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface HealthTrend {

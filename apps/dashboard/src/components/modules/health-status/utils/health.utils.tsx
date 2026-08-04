@@ -79,7 +79,7 @@ export const getTrendingMetrics = (
 // Filter packages by health status
 export const filterPackagesByHealth = (
   packages: PackageHealth[],
-  threshold: number = 80
+  threshold: number = 70
 ): {
   healthy: PackageHealth[];
   needsAttention: PackageHealth[];
@@ -87,12 +87,15 @@ export const filterPackagesByHealth = (
 } => {
   return packages.reduce(
     (acc, pkg) => {
-      if (pkg.overallScore >= 90) {
-        acc.healthy.push(pkg);
-      } else if (pkg.overallScore >= threshold) {
-        acc.needsAttention.push(pkg);
-      } else {
-        acc.critical.push(pkg);
+      const score = pkg.overallScore;
+      if (typeof score === 'number') {
+        if (score >= threshold) {
+          acc.healthy.push(pkg);
+        } else if (score >= 50) {
+          acc.needsAttention.push(pkg);
+        } else {
+          acc.critical.push(pkg);
+        }
       }
       return acc;
     },
@@ -143,7 +146,6 @@ export const generateHealthAlerts = (
         title: 'Security Issues',
         message: `Security audit failed for package ${pkg.name}`,
         packageName: pkg.name,
-        timestamp: new Date().toISOString(),
       });
     }
 
@@ -155,31 +157,34 @@ export const generateHealthAlerts = (
         title: 'Vulnerable Dependencies',
         message: `Package ${pkg.name} has vulnerable dependencies`,
         packageName: pkg.name,
-        timestamp: new Date().toISOString(),
       });
     }
 
     // Low overall score
-    if (pkg.overallScore < 60) {
+    if (typeof pkg.overallScore === 'number' && pkg.overallScore < 60) {
       alerts.push({
         id: `score-${pkg.name}`,
         type: 'warning',
         title: 'Low Health Score',
         message: `Package ${pkg.name} has a low health score of ${pkg.overallScore}%`,
         packageName: pkg.name,
-        timestamp: new Date().toISOString(),
       });
     }
   });
 
-  return alerts.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  return alerts.sort((a, b) => {
+    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return timeB - timeA;
+  });
 };
 
 // Format time ago
-export const formatTimeAgo = (dateString: string): string => {
+export const formatTimeAgo = (dateString?: string): string => {
+  if (!dateString) return 'Not Audited';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Not Audited';
+
   const now = new Date();
   const diffInMs = now.getTime() - date.getTime();
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -196,14 +201,14 @@ export const formatTimeAgo = (dateString: string): string => {
 };
 
 // Get metric icon
-export const getMetricIcon = (metricName: string): string => {
+export const getMetricIcon = (metricName: string): React.ReactNode => {
   const name = metricName.toLowerCase();
   if (name.includes('build')) return '🏗️';
   if (name.includes('test') || name.includes('coverage')) return '🧪';
   if (name.includes('lint')) return '✨';
   if (name.includes('security')) return '🔒';
   if (name.includes('dependency') || name.includes('dependencies'))
-    return <CubeIcon className="w-6 h-6 text-primary-600" />;
+    return <CubeIcon className="w-6 h-6 text-primary-600 inline-block" />;
   if (name.includes('performance')) return '⚡';
   return '📊';
 };
@@ -214,8 +219,8 @@ export const sortPackagesByHealth = (
   ascending: boolean = false
 ): PackageHealth[] => {
   return [...packages].sort((a, b) => {
-    return ascending
-      ? a.overallScore - b.overallScore
-      : b.overallScore - a.overallScore;
+    const scoreA = a.overallScore ?? 0;
+    const scoreB = b.overallScore ?? 0;
+    return ascending ? scoreA - scoreB : scoreB - scoreA;
   });
 };

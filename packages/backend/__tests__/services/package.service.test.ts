@@ -81,6 +81,10 @@ describe('Package Service Unit Tests', () => {
       expect(res.dependencies).toEqual([]);
       expect(res.devDependencies).toEqual([]);
       expect(res.peerDependencies).toEqual([]);
+      expect(res.status).toBe('unscanned');
+      expect(res.health).toBeDefined();
+      expect(res.health.overallScore).toBeNull();
+      expect(res.health.isHealthy).toBeNull();
     });
   });
 

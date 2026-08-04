@@ -264,7 +264,7 @@ describe('Changeset Service Unit Tests', () => {
 
       mockHttpsGet(404);
       expect(
-        await changesetService.checkVersionAvailableOnNpm('pkg', '1.0.0')
+        await changesetService.checkVersionAvailableOnNpm('pkg-new', '1.0.0')
       ).toBe(true);
     });
   });

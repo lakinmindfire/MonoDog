@@ -117,9 +117,9 @@ export default function PackageHealthList({
                       <div className="w-16 bg-gray-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full ${
-                            pkg.overallScore >= 90
+                            pkg.overallScore >= 70
                               ? 'bg-green-500'
-                              : pkg.overallScore >= 80
+                              : pkg.overallScore >= 50
                                 ? 'bg-yellow-500'
                                 : 'bg-red-500'
                           }`}

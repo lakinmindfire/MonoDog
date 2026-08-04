@@ -85,6 +85,23 @@ export default function PackageDetailHeader({
                     {packageData.status}
                   </span>
                 </div>
+
+                <div className="flex items-center space-x-1">
+                  {(packageData as any).publishStatus === 'published' ||
+                  (packageData as any).isPublished ? (
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Published
+                    </span>
+                  ) : (packageData as any).publishStatus === 'private' ? (
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                      Private
+                    </span>
+                  ) : (
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                      Unpublished
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -92,7 +109,9 @@ export default function PackageDetailHeader({
           <div className="text-right">
             <div className="text-sm text-gray-500 mb-2">Health Score</div>
             <div className="text-2xl font-bold text-blue-600">
-              {packageData.packageHealth?.packageOverallScore ?? ''}%
+              {typeof packageData.health?.overallScore === 'number'
+                ? `${packageData.health.overallScore}%`
+                : 'Not Audited'}
             </div>
           </div>
         </div>

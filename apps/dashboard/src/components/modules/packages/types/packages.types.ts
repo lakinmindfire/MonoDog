@@ -3,11 +3,21 @@
 import type { DependencyInfo } from '@/services/monorepoService';
 import type { PackageHealth } from '../../health-status/types/health.types';
 
+export interface PackageHealthMetrics {
+  overallScore: number | null;
+  isHealthy: boolean | null;
+  buildStatus?: string;
+  coverageScore?: number;
+  lintScore?: string;
+  securityScore?: string;
+  dependenciesScore?: string;
+}
+
 export interface Package {
   name: string;
   version: string;
   type: 'app' | 'lib' | 'tool' | 'service';
-  status: 'healthy' | 'warning' | 'error' | 'building';
+  status: 'healthy' | 'warning' | 'error' | 'building' | 'unscanned';
   lastUpdated: string;
   dependencies: string[];
   maintainers: string[];
@@ -15,11 +25,15 @@ export interface Package {
   description: string;
   path: string;
   private?: boolean;
+  isPublished?: boolean;
+  publishStatus?: 'published' | 'unpublished' | 'private';
   scripts?: Record<string, string>;
   peerDependencies?: string[];
   devDependencies?: string[];
   dependents: string[];
-  packageHealth: PackageHealth;
+  packageHealth?: PackageHealth;
+  health?: PackageHealthMetrics;
+  commitsCount?: number;
 }
 
 export interface Dependency {
@@ -53,12 +67,16 @@ export interface PackageDetail {
   license: string;
   scripts: Record<string, string>;
   commits: Commit[];
-  packageHealth: PackageHealth;
+  packageHealth?: PackageHealth;
+  health?: PackageHealthMetrics;
   buildStatus: 'success' | 'failed' | 'running' | 'unknown';
   testCoverage: number;
   lintStatus: 'pass' | 'fail' | 'warning';
   dependenciesInfo: DependencyInfo[];
   path: string;
+  isPublished?: boolean;
+  publishStatus?: 'published' | 'unpublished' | 'private';
+  commitsCount?: number;
 }
 
 export interface PackageStats {
