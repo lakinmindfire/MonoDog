@@ -419,6 +419,33 @@ export async function checkCIPassing(
   }
 }
 
+const npmCheckCache = new Map<string, { result: boolean; timestamp: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+
+let activeNpmRequests = 0;
+const npmRequestQueue: (() => void)[] = [];
+
+async function acquireNpmRequestSlot(): Promise<void> {
+  if (activeNpmRequests < 5) {
+    activeNpmRequests++;
+    return;
+  }
+  return new Promise(resolve => {
+    npmRequestQueue.push(() => {
+      activeNpmRequests++;
+      resolve();
+    });
+  });
+}
+
+function releaseNpmRequestSlot(): void {
+  activeNpmRequests--;
+  if (npmRequestQueue.length > 0) {
+    const next = npmRequestQueue.shift();
+    if (next) next();
+  }
+}
+
 /**
  * Check if a package version is available on npm registry
  * Returns true if version does NOT exist (safe to publish)
@@ -428,7 +455,25 @@ export async function checkVersionAvailableOnNpm(
   packageName: string,
   version: string
 ): Promise<boolean> {
-  return new Promise(resolve => {
+  const cacheKey = `${packageName}@${version}`;
+  const cached = npmCheckCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.result;
+  }
+
+  await acquireNpmRequestSlot();
+
+  return new Promise<boolean>(resolve => {
+    let settled = false;
+    const done = (result: boolean) => {
+      if (!settled) {
+        settled = true;
+        npmCheckCache.set(cacheKey, { result, timestamp: Date.now() });
+        releaseNpmRequestSlot();
+        resolve(result);
+      }
+    };
+
     try {
       const url = `https://registry.npmjs.org/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`;
 
@@ -437,31 +482,31 @@ export async function checkVersionAvailableOnNpm(
           AppLogger.warn(
             `NPM version check: Version ${version} of ${packageName} already exists`
           );
-          resolve(false); // Version exists, not available for publishing
+          done(false);
         } else if (response.statusCode === 404) {
           AppLogger.info(
             `NPM version check: Version ${version} of ${packageName} is available`
           );
-          resolve(true); // Version doesn't exist, safe to publish
+          done(true);
         } else {
           AppLogger.warn(`NPM check unexpected status ${response.statusCode}`);
-          resolve(false); // Default to denying publish on unexpected status
+          done(false);
         }
       });
 
       request.on('error', error => {
         AppLogger.error(`Failed to check npm version: ${error}`);
-        resolve(false); // Deny on error
+        done(false);
       });
 
-      request.setTimeout(5000, () => {
+      request.setTimeout(8000, () => {
         request.destroy();
-        AppLogger.warn('NPM registry check timeout');
-        resolve(false); // Deny on timeout
+        AppLogger.warn(`NPM registry check timeout for ${packageName}`);
+        done(false);
       });
     } catch (error) {
       AppLogger.error(`NPM version check error: ${error}`);
-      resolve(false); // Deny on error
+      done(false);
     }
   });
 }

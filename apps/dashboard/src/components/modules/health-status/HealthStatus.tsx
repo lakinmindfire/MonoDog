@@ -206,15 +206,15 @@ export default function HealthStatus() {
   const overallHealth = healthData ? healthData.summary?.averageScore : 0;
 
   const healthyPackages = healthData
-    ? healthData?.packages?.filter(pkg => pkg.health.overallScore >= 80).length
+    ? healthData?.packages?.filter(pkg => pkg.health.overallScore >= 70).length
     : 0;
   const warningPackages = healthData
     ? healthData?.packages?.filter(
-        pkg => pkg.health.overallScore >= 60 && pkg.health.overallScore < 80
+        pkg => pkg.health.overallScore >= 50 && pkg.health.overallScore < 70
       ).length
     : 0;
   const errorPackages = healthData
-    ? healthData?.packages?.filter(pkg => pkg.health.overallScore < 60).length
+    ? healthData?.packages?.filter(pkg => pkg.health.overallScore < 50).length
     : 0;
 
   const packagesHealth = [
@@ -236,9 +236,9 @@ export default function HealthStatus() {
       name: 'Overall Score',
       value: Math.round(overallHealth),
       status:
-        Math.round(overallHealth) >= 80
+        Math.round(overallHealth) >= 70
           ? 'healthy'
-          : Math.round(overallHealth) >= 60
+          : Math.round(overallHealth) >= 50
             ? 'warning'
             : 'error',
       description: `Average health score: ${Math.round(overallHealth)}/100`,
@@ -470,9 +470,9 @@ export default function HealthStatus() {
                       <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                         <div
                           className={`h-2 rounded-full ${
-                            pkg.health.overallScore >= 80
+                            pkg.health.overallScore >= 70
                               ? 'bg-green-500'
-                              : pkg.health.overallScore >= 60
+                              : pkg.health.overallScore >= 50
                                 ? 'bg-yellow-500'
                                 : 'bg-red-500'
                           }`}

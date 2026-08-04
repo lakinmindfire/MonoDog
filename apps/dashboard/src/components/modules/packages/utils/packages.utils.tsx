@@ -7,13 +7,28 @@ import {
 import { BuildingLibraryIcon } from '../../../../icons/heroicons';
 import { RocketLaunchIcon } from '../../../../icons/heroicons';
 import { CubeIcon } from '../../../../icons/heroicons';
+export const resolvePackageStatus = (pkg: Package): string => {
+  const statusStr = pkg.status as string | undefined;
+  if (statusStr && statusStr !== 'unknown' && statusStr !== '') {
+    return statusStr;
+  }
+  const score = pkg.health?.overallScore;
+  if (typeof score === 'number') {
+    if (score >= 70) return 'healthy';
+    if (score >= 50) return 'warning';
+    return 'error';
+  }
+  return 'unscanned';
+};
+
 // Calculate package statistics
 export const calculatePackageStats = (packages: Package[]): PackageStats => {
   return {
     total: packages.length,
-    healthy: packages.filter(p => p.status === 'healthy').length,
-    warnings: packages.filter(p => p.status === 'warning').length,
-    errors: packages.filter(p => p.status === 'error').length,
+    healthy: packages.filter(p => resolvePackageStatus(p) === 'healthy').length,
+    warnings: packages.filter(p => resolvePackageStatus(p) === 'warning')
+      .length,
+    errors: packages.filter(p => resolvePackageStatus(p) === 'error').length,
   };
 };
 
@@ -24,7 +39,7 @@ export const getUniquePackageTypes = (packages: Package[]): string[] => {
 
 // Get unique package statuses
 export const getUniquePackageStatuses = (packages: Package[]): string[] => {
-  return [...new Set(packages.map(pkg => pkg.status))];
+  return [...new Set(packages.map(pkg => resolvePackageStatus(pkg)))];
 };
 
 // Filter packages based on search, type, and status
@@ -36,13 +51,10 @@ export const filterPackages = (
     const matchesSearch =
       pkg.name.toLowerCase().includes(filters.search.toLowerCase()) ||
       pkg.description.toLowerCase().includes(filters.search.toLowerCase());
-    // ||
-    // pkg.tags.some(tag =>
-    //   tag.toLowerCase().includes(filters.search.toLowerCase())
-    // )
     const matchesType = filters.type === 'all' || pkg.type === filters.type;
+    const resolvedStatus = resolvePackageStatus(pkg);
     const matchesStatus =
-      filters.status === 'all' || pkg.status === filters.status;
+      filters.status === 'all' || resolvedStatus === filters.status;
 
     return matchesSearch && matchesType && matchesStatus;
   });
@@ -95,6 +107,9 @@ export const getStatusColor = (status: string): string => {
       return 'bg-red-100 text-red-800';
     case 'building':
       return 'bg-blue-100 text-blue-800';
+    case 'unscanned':
+    case 'unknown':
+      return 'bg-gray-100 text-gray-700 border border-gray-300';
     default:
       return 'bg-gray-100 text-gray-800';
   }

@@ -109,19 +109,20 @@ export const getAllPackagesHealthMetrics = async (targetRoot?: string) => {
   }
 
   const packages = (packageHealthData || []).map((pkg: any) => {
+    const score = pkg.packageOverallScore ?? pkg.overallScore ?? null;
     const health = {
-      buildStatus: pkg.packageBuildStatus,
-      testCoverage: pkg.packageTestCoverage,
-      lintStatus: pkg.packageLintStatus,
-      securityAudit: pkg.packageSecurity,
-      dependencyStatus: pkg.packageDependencies || 'up-to-date',
-      overallScore: pkg.packageOverallScore,
+      buildStatus: pkg.packageBuildStatus || 'unknown',
+      testCoverage: pkg.packageTestCoverage ?? 0,
+      lintStatus: pkg.packageLintStatus || 'unknown',
+      securityAudit: pkg.packageSecurity || 'unknown',
+      dependencyStatus: pkg.packageDependencies || 'unknown',
+      overallScore: score,
     };
 
     return {
       packageName: pkg.packageName,
       health,
-      isHealthy: pkg.packageOverallScore >= 80,
+      isHealthy: typeof score === 'number' ? score >= 70 : null,
     };
   });
 

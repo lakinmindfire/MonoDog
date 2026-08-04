@@ -64,8 +64,33 @@ export default function HealthMetricsTab({
         return 'bg-gray-100 text-gray-800';
     }
   };
-  if (!packageData.packageHealth?.packageOverallScore) {
-    return <p className="py-6 text-gray-600">No health data available.</p>;
+  const score = packageData.health?.overallScore;
+  const buildStatus =
+    packageData.health?.buildStatus ||
+    packageData.packageHealth?.buildStatus ||
+    'unknown';
+  const coverageScore =
+    packageData.health?.coverageScore ??
+    packageData.packageHealth?.testCoverage ??
+    0;
+  const lintStatus =
+    packageData.health?.lintScore ||
+    packageData.packageHealth?.lintStatus ||
+    'unknown';
+
+  if (typeof score !== 'number') {
+    return (
+      <div className="py-6">
+        <div className="bg-gray-50 border rounded-lg p-6 text-center">
+          <h3 className="text-lg font-medium text-gray-700 mb-2">
+            Not Audited
+          </h3>
+          <p className="text-sm text-gray-500">
+            Health score has not been calculated for this package yet.
+          </p>
+        </div>
+      </div>
+    );
   }
   return (
     <div className="py-6">
@@ -73,36 +98,30 @@ export default function HealthMetricsTab({
       <div className="bg-white border rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Health Score</h3>
-          <div
-            className={`text-3xl font-bold ${getHealthScoreColor(packageData.packageHealth.packageOverallScore)}`}
-          >
-            {packageData.packageHealth.packageOverallScore}%
+          <div className={`text-3xl font-bold ${getHealthScoreColor(score)}`}>
+            {score}%
           </div>
         </div>
 
         <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
           <div
             className={`h-3 rounded-full transition-all duration-300 ${
-              packageData.packageHealth.packageOverallScore >= 80
+              score >= 70
                 ? 'bg-green-500'
-                : packageData.packageHealth.packageOverallScore >= 60
+                : score >= 50
                   ? 'bg-yellow-500'
                   : 'bg-red-500'
             }`}
             style={{
-              width: `${packageData.packageHealth.packageOverallScore}%`,
+              width: `${score}%`,
             }}
           />
         </div>
 
         <p className="text-sm text-gray-600">
-          {packageData.packageHealth.packageOverallScore >= 80 &&
-            'Excellent health - package is in great condition'}
-          {packageData.packageHealth.packageOverallScore >= 60 &&
-            packageData.packageHealth.packageOverallScore < 80 &&
-            'Good health - minor issues detected'}
-          {packageData.packageHealth.packageOverallScore < 60 &&
-            'Needs attention - several issues require fixing'}
+          {score >= 70 && 'Excellent health - package is in great condition'}
+          {score >= 50 && score < 70 && 'Good health - minor issues detected'}
+          {score < 50 && 'Needs attention - several issues require fixing'}
         </p>
       </div>
 
@@ -112,17 +131,14 @@ export default function HealthMetricsTab({
         <div className="bg-white border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-medium text-gray-900">Build Status</h4>
-            {getBuildStatusIcon(packageData.packageHealth.packageBuildStatus)}
+            {getBuildStatusIcon(buildStatus)}
           </div>
           <div className="flex items-center justify-between">
             <span
-              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBuildStatusColor(packageData.packageHealth.packageBuildStatus)}`}
+              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBuildStatusColor(buildStatus)}`}
             >
-              {packageData.packageHealth.packageBuildStatus}
+              {buildStatus}
             </span>
-            <button className="hidden text-blue-600 hover:text-blue-500 text-sm">
-              View Logs
-            </button>
           </div>
         </div>
 
@@ -132,27 +148,27 @@ export default function HealthMetricsTab({
             <h4 className="text-sm font-medium text-gray-900">Test Coverage</h4>
             <div
               className={`text-lg font-semibold ${
-                packageData.packageHealth.packageTestCoverage >= 80
+                coverageScore >= 80
                   ? 'text-green-600'
-                  : packageData.packageHealth.packageTestCoverage >= 60
+                  : coverageScore >= 60
                     ? 'text-yellow-600'
                     : 'text-red-600'
               }`}
             >
-              {packageData.packageHealth.packageTestCoverage}%
+              {coverageScore}%
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full ${
-                packageData.packageHealth.packageTestCoverage >= 80
+                coverageScore >= 80
                   ? 'bg-green-500'
-                  : packageData.packageHealth.packageTestCoverage >= 60
+                  : coverageScore >= 60
                     ? 'bg-yellow-500'
                     : 'bg-red-500'
               }`}
               style={{
-                width: `${packageData.packageHealth.packageTestCoverage}%`,
+                width: `${coverageScore}%`,
               }}
             />
           </div>
@@ -162,25 +178,22 @@ export default function HealthMetricsTab({
         <div className="bg-white border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-sm font-medium text-gray-900">Lint Status</h4>
-            {packageData.packageHealth.packageLintStatus === 'pass' && (
+            {lintStatus === 'pass' && (
               <CheckCircleIcon className="w-5 h-5 text-green-500" />
             )}
-            {packageData.packageHealth.packageLintStatus === 'fail' && (
+            {lintStatus === 'fail' && (
               <XCircleIcon className="w-5 h-5 text-red-500" />
             )}
-            {packageData.packageHealth.packageLintStatus === 'warning' && (
+            {lintStatus === 'warning' && (
               <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
             )}
           </div>
           <div className="flex items-center justify-between">
             <span
-              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLintStatusColor(packageData.packageHealth.packageLintStatus)}`}
+              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLintStatusColor(lintStatus)}`}
             >
-              {packageData.packageHealth.packageLintStatus}
+              {lintStatus}
             </span>
-            <button className="hidden text-blue-600 hover:text-blue-500 text-sm">
-              View Issues
-            </button>
           </div>
         </div>
       </div>
@@ -235,35 +248,28 @@ export default function HealthMetricsTab({
                 <span className="text-gray-600">Build Status:</span>
                 <span
                   className={`font-medium ${
-                    packageData.packageHealth.packageBuildStatus === 'success'
+                    buildStatus === 'success' || buildStatus === 'pass'
                       ? 'text-green-600'
-                      : packageData.packageHealth.packageBuildStatus ===
-                          'failed'
+                      : buildStatus === 'failed' || buildStatus === 'fail'
                         ? 'text-red-600'
                         : 'text-yellow-600'
                   }`}
                 >
-                  {packageData.packageHealth.packageBuildStatus}
-                </span>
-              </div>
-              <div className="hidden flex justify-between">
-                <span className="text-gray-600">Test Coverage:</span>
-                <span className="font-medium">
-                  {packageData.packageHealth.packageTestCoverage}%
+                  {buildStatus}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Lint Status:</span>
                 <span
                   className={`font-medium ${
-                    packageData.packageHealth.packageLintStatus === 'pass'
+                    lintStatus === 'pass'
                       ? 'text-green-600'
-                      : packageData.packageHealth.packageLintStatus === 'fail'
+                      : lintStatus === 'fail'
                         ? 'text-red-600'
                         : 'text-yellow-600'
                   }`}
                 >
-                  {packageData.packageHealth.packageLintStatus}
+                  {lintStatus}
                 </span>
               </div>
             </div>
